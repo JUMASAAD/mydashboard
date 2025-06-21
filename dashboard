@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Lamp Control Dashboard</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #1a2980, #26d0ce);
+      color: #fff;
+      text-align: center;
+      margin: 0;
+      padding: 0;
+    }
+
+    .container {
+      padding-top: 80px;
+    }
+
+    .card {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 30px;
+      border-radius: 12px;
+      display: inline-block;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+      min-width: 300px;
+    }
+
+    input, button {
+      padding: 10px;
+      width: 80%;
+      border: none;
+      border-radius: 6px;
+      margin-bottom: 10px;
+    }
+
+    button {
+      width: auto;
+      background-color: #00c9ff;
+      color: #fff;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    button:hover {
+      background-color: #007acc;
+    }
+
+    .logout-btn {
+      background-color: #ff4b5c;
+    }
+
+    .logout-btn:hover {
+      background-color: #d32f2f;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .status {
+      font-weight: bold;
+      margin-top: 5px;
+    }
+
+    .on {
+      color: #00ff88;
+    }
+
+    .off {
+      color: #ff4b5c;
+    }
+
+    #login-error {
+      color: #ff8080;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Login Section -->
+    <div id="login-section" class="card">
+      <h2> Login</h2>
+      <input type="text" id="username" placeholder="Username"><br>
+      <input type="password" id="password" placeholder="Password"><br>
+      <button onclick="login()">Login</button>
+      <p id="login-error"></p>
+    </div>
+
+    <!-- Control Section -->
+    <div id="control-section" class="card hidden">
+      <h1>PLC Lamp Control</h1>
+
+      <h2>Lamp 1</h2>
+      <button onclick="setLampState('lamp1', 'on')">Turn Lamp 1 ON</button>
+      <button onclick="setLampState('lamp1', 'off')">Turn Lamp 1 OFF</button>
+      <div id="status-lamp1" class="status off">Status: OFF</div>
+
+      <h2>Lamp 2</h2>
+      <button onclick="setLampState('lamp2', 'on')">Turn Lamp 2 ON</button>
+      <button onclick="setLampState('lamp2', 'off')">Turn Lamp 2 OFF</button>
+      <div id="status-lamp2" class="status off">Status: OFF</div>
+
+      <br><br>
+      <button class="logout-btn" onclick="logout()"> Logout</button>
+    </div>
+  </div>
+
+  <script>
+    const arduinoIP = "http://10.10.10.4";
+    let lampStates = {
+      lamp1: "off",
+      lamp2: "off"
+    };
+
+    function login() {
+      const user = document.getElementById("username").value;
+      const pass = document.getElementById("password").value;
+
+      if (user === "admin" && pass === "admin") {
+        document.getElementById("login-section").classList.add("hidden");
+        document.getElementById("control-section").classList.remove("hidden");
+        fetchStatus(); // Load status from Arduino
+      } else {
+        document.getElementById("login-error").innerText = "⚠ Wrong username or password!";
+      }
+    }
+
+    function logout() {
+      document.getElementById("control-section").classList.add("hidden");
+      document.getElementById("login-section").classList.remove("hidden");
+      document.getElementById("username").value = "";
+      document.getElementById("password").value = "";
+      document.getElementById("login-error").innerText = "";
+      resetStatus();
+    }
+
+    function setLampState(lamp, state) {
+      // Update UI immediately
+      updateStatus(lamp, state);
+      lampStates[lamp] = state;
+
+      // Send request to Arduino
+      fetch(`${arduinoIP}/?${lamp}=${state}`)
+        .then(res => res.json())
+        .then(data => {
+          lampStates.lamp1 = data.lamp1;
+          lampStates.lamp2 = data.lamp2;
+          updateStatus("lamp1", data.lamp1);
+          updateStatus("lamp2", data.lamp2);
+        })
+        .catch(() => {
+          console.log(`Arduino not reachable when setting ${lamp} to ${state}`);
+        });
+    }
+
+    function fetchStatus() {
+      fetch(arduinoIP)
+        .then(res => res.json())
+        .then(data => {
+          lampStates.lamp1 = data.lamp1;
+          lampStates.lamp2 = data.lamp2;
+          updateStatus("lamp1", data.lamp1);
+          updateStatus("lamp2", data.lamp2);
+        })
+        .catch(() => {
+          console.log("Failed to fetch status from Arduino.");
+        });
+    }
+
+    function updateStatus(lamp, state) {
+      const elem = document.getElementById(`status-${lamp}`);
+      elem.textContent = `Status: ${state.toUpperCase()}`;
+      elem.classList.remove("on", "off");
+      elem.classList.add(state === "on" ? "on" : "off");
+    }
+
+    function resetStatus() {
+      lampStates = { lamp1: "off", lamp2: "off" };
+      updateStatus("lamp1", "off");
+      updateStatus("lamp2", "off");
+    }
+  </script>
+</body>
+</html>
